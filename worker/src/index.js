@@ -1,25 +1,47 @@
-import { Router } from "itty-router";
-import { getBooks } from "./routes/books";
-
-const router = Router();
-
-// ✅ handle both paths
-router.get("/books", (req, env) => getBooks(req, env));
-router.get("/api/books", (req, env) => getBooks(req, env));
-
-// ✅ hard fallback (prevents hangs)
-router.all("*", () =>
-  new Response(JSON.stringify({ error: "Route not found" }), {
-    status: 404,
-    headers: {
-      "Content-Type": "application/json",
-      "Access-Control-Allow-Origin": "*",
-    },
-  })
-);
-
 export default {
-  async fetch(request, env, ctx) {
-    return router.handle(request, env, ctx);
+  async fetch(request, env) {
+    try {
+      const url = new URL(request.url);
+
+      // ---- GET /api/books ----
+      if (request.method === "GET" && url.pathname === "/api/books") {
+        const { results } = await env.DB
+          .prepare("SELECT id, title, description FROM books")
+          .all();
+
+        return new Response(JSON.stringify(results), {
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          },
+        });
+      }
+
+      // ---- fallback ----
+      return new Response(
+        JSON.stringify({ error: "Not found" }),
+        {
+          status: 404,
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          },
+        }
+      );
+    } catch (err) {
+      return new Response(
+        JSON.stringify({
+          error: "Worker exception",
+          message: err.message,
+        }),
+        {
+          status: 500,
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          },
+        }
+      );
+    }
   },
 };

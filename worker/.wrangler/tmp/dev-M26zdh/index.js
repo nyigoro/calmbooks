@@ -1,77 +1,45 @@
 var __defProp = Object.defineProperty;
 var __name = (target, value) => __defProp(target, "name", { value, configurable: true });
 
-// ../node_modules/itty-router/index.mjs
-var t = /* @__PURE__ */ __name(({ base: e = "", routes: t2 = [], ...r2 } = {}) => ({ __proto__: new Proxy({}, { get: /* @__PURE__ */ __name((r3, o2, a, s) => (r4, ...c) => t2.push([o2.toUpperCase?.(), RegExp(`^${(s = (e + r4).replace(/\/+(\/|$)/g, "$1")).replace(/(\/?\.?):(\w+)\+/g, "($1(?<$2>*))").replace(/(\/?\.?):(\w+)/g, "($1(?<$2>[^$1/]+?))").replace(/\./g, "\\.").replace(/(\/?)\*/g, "($1.*)?")}/*$`), c, s]) && a, "get") }), routes: t2, ...r2, async fetch(e2, ...o2) {
-  let a, s, c = new URL(e2.url), n = e2.query = { __proto__: null };
-  for (let [e3, t3] of c.searchParams) n[e3] = n[e3] ? [].concat(n[e3], t3) : t3;
-  e: try {
-    for (let t3 of r2.before || []) if (null != (a = await t3(e2.proxy ?? e2, ...o2))) break e;
-    t: for (let [r3, n2, l, i] of t2) if ((r3 == e2.method || "ALL" == r3) && (s = c.pathname.match(n2))) {
-      e2.params = s.groups || {}, e2.route = i;
-      for (let t3 of l) if (null != (a = await t3(e2.proxy ?? e2, ...o2))) break t;
-    }
-  } catch (t3) {
-    if (!r2.catch) throw t3;
-    a = await r2.catch(t3, e2.proxy ?? e2, ...o2);
-  }
-  try {
-    for (let t3 of r2.finally || []) a = await t3(a, e2.proxy ?? e2, ...o2) ?? a;
-  } catch (t3) {
-    if (!r2.catch) throw t3;
-    a = await r2.catch(t3, e2.proxy ?? e2, ...o2);
-  }
-  return a;
-} }), "t");
-var r = /* @__PURE__ */ __name((e = "text/plain; charset=utf-8", t2) => (r2, o2 = {}) => {
-  if (void 0 === r2 || r2 instanceof Response) return r2;
-  const a = new Response(t2?.(r2) ?? r2, o2.url ? void 0 : o2);
-  return a.headers.set("content-type", e), a;
-}, "r");
-var o = r("application/json; charset=utf-8", JSON.stringify);
-var p = r("text/plain; charset=utf-8", String);
-var f = r("text/html");
-var u = r("image/jpeg");
-var h = r("image/png");
-var g = r("image/webp");
-
-// src/routes/books.js
-async function getBooks(request, env) {
-  try {
-    const { results } = await env.DB.prepare("SELECT * FROM books ORDER BY created_at DESC").all();
-    return new Response(JSON.stringify(results), {
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*"
-      }
-    });
-  } catch (err) {
-    console.error("GET /books error:", err);
-    return new Response(
-      JSON.stringify({ error: err.message }),
-      { status: 500 }
-    );
-  }
-}
-__name(getBooks, "getBooks");
-
 // src/index.js
-var router = t();
-router.get("/books", (req, env) => getBooks(req, env));
-router.get("/api/books", (req, env) => getBooks(req, env));
-router.all(
-  "*",
-  () => new Response(JSON.stringify({ error: "Route not found" }), {
-    status: 404,
-    headers: {
-      "Content-Type": "application/json",
-      "Access-Control-Allow-Origin": "*"
-    }
-  })
-);
 var src_default = {
-  async fetch(request, env, ctx) {
-    return router.handle(request, env, ctx);
+  async fetch(request, env) {
+    try {
+      const url = new URL(request.url);
+      if (request.method === "GET" && url.pathname === "/api/books") {
+        const { results } = await env.DB.prepare("SELECT id, title, description FROM books").all();
+        return new Response(JSON.stringify(results), {
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*"
+          }
+        });
+      }
+      return new Response(
+        JSON.stringify({ error: "Not found" }),
+        {
+          status: 404,
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*"
+          }
+        }
+      );
+    } catch (err) {
+      return new Response(
+        JSON.stringify({
+          error: "Worker exception",
+          message: err.message
+        }),
+        {
+          status: 500,
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*"
+          }
+        }
+      );
+    }
   }
 };
 
