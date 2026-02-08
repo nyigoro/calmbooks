@@ -1,30 +1,82 @@
 var __defProp = Object.defineProperty;
 var __name = (target, value) => __defProp(target, "name", { value, configurable: true });
 
-// src/index.js
-var src_default = {
-  async fetch(request, env) {
-    const url = new URL(request.url);
-    if (request.method === "GET" && url.pathname === "/books") {
-      const result = await env.DB.prepare("SELECT * FROM books ORDER BY id").all();
-      return new Response(JSON.stringify(result.results), {
-        headers: { "Content-Type": "application/json" }
-      });
+// ../node_modules/itty-router/index.mjs
+var t = /* @__PURE__ */ __name(({ base: e = "", routes: t2 = [], ...r2 } = {}) => ({ __proto__: new Proxy({}, { get: /* @__PURE__ */ __name((r3, o2, a, s) => (r4, ...c) => t2.push([o2.toUpperCase?.(), RegExp(`^${(s = (e + r4).replace(/\/+(\/|$)/g, "$1")).replace(/(\/?\.?):(\w+)\+/g, "($1(?<$2>*))").replace(/(\/?\.?):(\w+)/g, "($1(?<$2>[^$1/]+?))").replace(/\./g, "\\.").replace(/(\/?)\*/g, "($1.*)?")}/*$`), c, s]) && a, "get") }), routes: t2, ...r2, async fetch(e2, ...o2) {
+  let a, s, c = new URL(e2.url), n = e2.query = { __proto__: null };
+  for (let [e3, t3] of c.searchParams) n[e3] = n[e3] ? [].concat(n[e3], t3) : t3;
+  e: try {
+    for (let t3 of r2.before || []) if (null != (a = await t3(e2.proxy ?? e2, ...o2))) break e;
+    t: for (let [r3, n2, l, i] of t2) if ((r3 == e2.method || "ALL" == r3) && (s = c.pathname.match(n2))) {
+      e2.params = s.groups || {}, e2.route = i;
+      for (let t3 of l) if (null != (a = await t3(e2.proxy ?? e2, ...o2))) break t;
     }
-    if (request.method === "POST" && url.pathname === "/books") {
-      const data = await request.json();
-      if (!data.title) {
-        return new Response(JSON.stringify({ error: "Title required" }), { status: 400 });
-      }
-      const result = await env.DB.prepare(
-        "INSERT INTO books (title, description) VALUES (?, ?) RETURNING *"
-      ).bind(data.title, data.description || "").first();
-      return new Response(JSON.stringify(result), {
-        headers: { "Content-Type": "application/json" }
-      });
-    }
-    return new Response("Not found", { status: 404 });
+  } catch (t3) {
+    if (!r2.catch) throw t3;
+    a = await r2.catch(t3, e2.proxy ?? e2, ...o2);
   }
+  try {
+    for (let t3 of r2.finally || []) a = await t3(a, e2.proxy ?? e2, ...o2) ?? a;
+  } catch (t3) {
+    if (!r2.catch) throw t3;
+    a = await r2.catch(t3, e2.proxy ?? e2, ...o2);
+  }
+  return a;
+} }), "t");
+var r = /* @__PURE__ */ __name((e = "text/plain; charset=utf-8", t2) => (r2, o2 = {}) => {
+  if (void 0 === r2 || r2 instanceof Response) return r2;
+  const a = new Response(t2?.(r2) ?? r2, o2.url ? void 0 : o2);
+  return a.headers.set("content-type", e), a;
+}, "r");
+var o = r("application/json; charset=utf-8", JSON.stringify);
+var p = r("text/plain; charset=utf-8", String);
+var f = r("text/html");
+var u = r("image/jpeg");
+var h = r("image/png");
+var g = r("image/webp");
+
+// src/utils.js
+var jsonResponse = /* @__PURE__ */ __name((data, status = 200) => new Response(JSON.stringify(data), {
+  status,
+  headers: { "Content-Type": "application/json" }
+}), "jsonResponse");
+
+// src/index.js
+var router = t();
+router.get("/books", async (req, env) => {
+  const books = await env.DB.prepare("SELECT * FROM books").all();
+  return jsonResponse(books.results || []);
+});
+router.post("/books", async (req, env) => {
+  const { title, author } = await req.json();
+  const result = await env.DB.prepare(
+    "INSERT INTO books (title, author) VALUES (?, ?)"
+  ).run(title, author);
+  return jsonResponse({ id: result.lastInsertRowid, title, author });
+});
+router.get("/books/:id/chapters", async (req, env) => {
+  const { id } = req.params;
+  const chapters = await env.DB.prepare(
+    "SELECT * FROM chapters WHERE bookId = ?"
+  ).all(id);
+  return jsonResponse(chapters.results || []);
+});
+router.post("/books/:id/chapters", async (req, env) => {
+  const { id } = req.params;
+  const { title, content } = await req.json();
+  const result = await env.DB.prepare(
+    "INSERT INTO chapters (bookId, title, content) VALUES (?, ?, ?)"
+  ).run(id, title, content);
+  return jsonResponse({
+    id: result.lastInsertRowid,
+    bookId: id,
+    title,
+    content
+  });
+});
+router.all("*", () => new Response("Not found", { status: 404 }));
+var src_default = {
+  fetch: /* @__PURE__ */ __name((req, env) => router.handle(req, env), "fetch")
 };
 
 // ../node_modules/wrangler/templates/middleware/middleware-ensure-req-body-drained.ts
@@ -68,7 +120,7 @@ var jsonError = /* @__PURE__ */ __name(async (request, env, _ctx, middlewareCtx)
 }, "jsonError");
 var middleware_miniflare3_json_error_default = jsonError;
 
-// .wrangler/tmp/bundle-JJ0E1K/middleware-insertion-facade.js
+// .wrangler/tmp/bundle-OnWMlc/middleware-insertion-facade.js
 var __INTERNAL_WRANGLER_MIDDLEWARE__ = [
   middleware_ensure_req_body_drained_default,
   middleware_miniflare3_json_error_default
@@ -100,7 +152,7 @@ function __facade_invoke__(request, env, ctx, dispatch, finalMiddleware) {
 }
 __name(__facade_invoke__, "__facade_invoke__");
 
-// .wrangler/tmp/bundle-JJ0E1K/middleware-loader.entry.ts
+// .wrangler/tmp/bundle-OnWMlc/middleware-loader.entry.ts
 var __Facade_ScheduledController__ = class ___Facade_ScheduledController__ {
   constructor(scheduledTime, cron, noRetry) {
     this.scheduledTime = scheduledTime;
