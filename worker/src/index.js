@@ -1,75 +1,63 @@
-import { Router } from 'itty-router';
-import { jsonResponse } from './utils.js'; // helper for JSON responses
+// worker/src/index.js
+import { Router } from 'itty-router'
 
-// Initialize router
-const router = Router();
+// Create router
+const router = Router()
 
-// --- BOOKS ROUTES ---
+// Health check
+router.get('/health', () => new Response('OK'))
 
-// GET /books - list all books
+// GET all books
 router.get('/books', async (req, env) => {
   try {
-    const books = await env.DB.prepare('SELECT * FROM books').all();
-    return jsonResponse(books.results || []);
+    const res = await env.DB.prepare('SELECT * FROM books').all()
+    // res.results is an array of rows
+    return new Response(JSON.stringify(res.results), {
+      headers: { 'Content-Type': 'application/json' },
+    })
   } catch (err) {
-    console.error('GET /books error:', err);
-    return jsonResponse({ error: err.message }, 500);
+    console.error('Error fetching books:', err)
+    return new Response(JSON.stringify({ error: 'Failed to fetch books' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    })
   }
-});
+})
 
-// POST /books - add a new book
-router.post('/books', async (req, env) => {
-  try {
-    const { title, description } = await req.json();
-    const result = await env.DB.prepare(
-      'INSERT INTO books (title, description) VALUES (?, ?) RETURNING *'
-    ).bind(title, description).first();
-
-    return jsonResponse(result);
-  } catch (err) {
-    console.error('POST /books error:', err);
-    return jsonResponse({ error: err.message }, 500);
-  }
-});
-
-// --- CHAPTERS ROUTES ---
-
-// GET /books/:id/chapters - list chapters of a book
+// GET chapters for a specific book
 router.get('/books/:id/chapters', async (req, env) => {
   try {
-    const { id } = req.params;
-    const chapters = await env.DB.prepare(
-      'SELECT * FROM chapters WHERE book_id = ?'
-    ).bind(id).all();
+    const { id } = req.params
+    const res = await env.DB
+      .prepare('SELECT * FROM chapters WHERE book_id = ?')
+      .bind(id)
+      .all()
 
-    return jsonResponse(chapters.results || []);
+    if (!res.results.length) {
+      return new Response(JSON.stringify({ error: 'No chapters found' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+
+    return new Response(JSON.stringify(res.results), {
+      headers: { 'Content-Type': 'application/json' },
+    })
   } catch (err) {
-    console.error('GET /books/:id/chapters error:', err);
-    return jsonResponse({ error: err.message }, 500);
+    console.error('Error fetching chapters:', err)
+    return new Response(JSON.stringify({ error: 'Failed to fetch chapters' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    })
   }
-});
+})
 
-// POST /books/:id/chapters - add a chapter to a book
-router.post('/books/:id/chapters', async (req, env) => {
-  try {
-    const { id } = req.params;
-    const { title, content } = await req.json();
+// Catch-all for undefined routes
+router.all('*', () => new Response('Not found', { status: 404 }))
 
-    const result = await env.DB.prepare(
-      'INSERT INTO chapters (book_id, title, content) VALUES (?, ?, ?) RETURNING *'
-    ).bind(id, title, content).first();
-
-    return jsonResponse(result);
-  } catch (err) {
-    console.error('POST /books/:id/chapters error:', err);
-    return jsonResponse({ error: err.message }, 500);
-  }
-});
-
-// --- Default / Not Found ---
-router.all('*', () => new Response('Not found', { status: 404 }));
-
-// --- Fetch handler ---
+// Export fetch handler for Worker
 export default {
-  fetch: (req, env, ctx) => router.handle(req, { ...req, env }, ctx),
-};
+  async fetch(request, env) {
+    return router.handle(request, env)
+  },
+}
