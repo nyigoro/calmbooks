@@ -44,39 +44,54 @@ var jsonResponse = /* @__PURE__ */ __name((data, status = 200) => new Response(J
 // src/index.js
 var router = t();
 router.get("/books", async (req, env) => {
-  const books = await env.DB.prepare("SELECT * FROM books").all();
-  return jsonResponse(books.results || []);
+  try {
+    const books = await env.DB.prepare("SELECT * FROM books").all();
+    return jsonResponse(books.results || []);
+  } catch (err) {
+    console.error("GET /books error:", err);
+    return jsonResponse({ error: err.message }, 500);
+  }
 });
 router.post("/books", async (req, env) => {
-  const { title, author } = await req.json();
-  const result = await env.DB.prepare(
-    "INSERT INTO books (title, author) VALUES (?, ?)"
-  ).run(title, author);
-  return jsonResponse({ id: result.lastInsertRowid, title, author });
+  try {
+    const { title, description } = await req.json();
+    const result = await env.DB.prepare(
+      "INSERT INTO books (title, description) VALUES (?, ?) RETURNING *"
+    ).bind(title, description).first();
+    return jsonResponse(result);
+  } catch (err) {
+    console.error("POST /books error:", err);
+    return jsonResponse({ error: err.message }, 500);
+  }
 });
 router.get("/books/:id/chapters", async (req, env) => {
-  const { id } = req.params;
-  const chapters = await env.DB.prepare(
-    "SELECT * FROM chapters WHERE bookId = ?"
-  ).all(id);
-  return jsonResponse(chapters.results || []);
+  try {
+    const { id } = req.params;
+    const chapters = await env.DB.prepare(
+      "SELECT * FROM chapters WHERE book_id = ?"
+    ).bind(id).all();
+    return jsonResponse(chapters.results || []);
+  } catch (err) {
+    console.error("GET /books/:id/chapters error:", err);
+    return jsonResponse({ error: err.message }, 500);
+  }
 });
 router.post("/books/:id/chapters", async (req, env) => {
-  const { id } = req.params;
-  const { title, content } = await req.json();
-  const result = await env.DB.prepare(
-    "INSERT INTO chapters (bookId, title, content) VALUES (?, ?, ?)"
-  ).run(id, title, content);
-  return jsonResponse({
-    id: result.lastInsertRowid,
-    bookId: id,
-    title,
-    content
-  });
+  try {
+    const { id } = req.params;
+    const { title, content } = await req.json();
+    const result = await env.DB.prepare(
+      "INSERT INTO chapters (book_id, title, content) VALUES (?, ?, ?) RETURNING *"
+    ).bind(id, title, content).first();
+    return jsonResponse(result);
+  } catch (err) {
+    console.error("POST /books/:id/chapters error:", err);
+    return jsonResponse({ error: err.message }, 500);
+  }
 });
 router.all("*", () => new Response("Not found", { status: 404 }));
 var src_default = {
-  fetch: /* @__PURE__ */ __name((req, env) => router.handle(req, env), "fetch")
+  fetch: /* @__PURE__ */ __name((req, env, ctx) => router.handle(req, { ...req, env }, ctx), "fetch")
 };
 
 // ../node_modules/wrangler/templates/middleware/middleware-ensure-req-body-drained.ts
