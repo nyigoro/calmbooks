@@ -1,0 +1,14 @@
+-- Schema for CalmBooks D1 database
+CREATE TABLE IF NOT EXISTS books (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  description TEXT
+);
+
+CREATE TABLE IF NOT EXISTS chapters (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  book_id INTEGER NOT NULL,
+  title TEXT NOT NULL,
+  content TEXT DEFAULT "",
+  FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE
+);
